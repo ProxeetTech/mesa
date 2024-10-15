@@ -135,3 +135,6 @@ MEBA_LIB(LIB_NAME sparx5_bringup MEBA_SRC_FOLDER sparx5
 MEBA_LIB(LIB_NAME lan966x MEBA_SRC_FOLDER lan966x
          STATIC_DEPENDENCIES    mepa_lan966x)
 
+MEBA_LIB(LIB_NAME pxrouter_lan9694 MEBA_SRC_FOLDER pxrouter_lan9694
+        STATIC_DEPENDENCIES    mepa_sparx5)
+
