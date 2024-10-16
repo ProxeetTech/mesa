@@ -1,0 +1,99 @@
+# Check if the environment variable OPENWRT_DIR is set
+if(NOT DEFINED ENV{OPENWRT_DIR})
+  message(FATAL_ERROR "Environment variable OPENWRT_DIR is not set! Please set the OPENWRT_DIR environment variable and try again.
+  Example: export OPENWRT_DIR=~/sw/proxeet/microchip_switch/openwrt\n")
+else()
+  set(OPENWRT_DIR $ENV{OPENWRT_DIR})
+endif()
+
+# Set path to OpenWRT toolchain
+set(RELOCATED_HOST_DIR "${OPENWRT_DIR}/staging_dir/toolchain-aarch64_cortex-a53_gcc-13.3.0_musl")
+# Set staging directory
+set(STAGING_DIR "${OPENWRT_DIR}/staging_dir/target-aarch64_cortex-a53_musl")
+set(ENV{STAGING_DIR} "${STAGING_DIR}")
+# Set path to find zlib
+set(ZLIB_ROOT "${STAGING_DIR}/usr")
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR})
+
+if(NOT DEFINED CMAKE_SYSTEM_NAME)
+  set(CMAKE_SYSTEM_NAME Linux)
+endif()
+if(NOT DEFINED CMAKE_SYSTEM_VERSION)
+  set(CMAKE_SYSTEM_VERSION 1)
+endif()
+if(NOT DEFINED CMAKE_SYSTEM_PROCESSOR)
+  set(CMAKE_SYSTEM_PROCESSOR aarch64)
+endif()
+
+if(NOT DEFINED CMAKE_C_FLAGS_DEBUG)
+  set(CMAKE_C_FLAGS_DEBUG "" CACHE STRING "Debug CFLAGS")
+endif()
+if(NOT DEFINED CMAKE_C_FLAGS_RELEASE)
+  set(CMAKE_C_FLAGS_RELEASE " -DNDEBUG" CACHE STRING "Release CFLAGS")
+endif()
+
+if(NOT DEFINED CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "OpenWRT build configuration")
+endif()
+
+if(NOT DEFINED CMAKE_C_FLAGS)
+  set(CMAKE_C_FLAGS "-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -O2 -g0" CACHE STRING "OpenWRT CFLAGS")
+endif()
+if(NOT DEFINED CMAKE_EXE_LINKER_FLAGS)
+  set(CMAKE_EXE_LINKER_FLAGS "" CACHE STRING "OpenWRT LDFLAGS for executables")
+endif()
+if(NOT DEFINED CMAKE_SHARED_LINKER_FLAGS)
+  set(CMAKE_SHARED_LINKER_FLAGS "" CACHE STRING "OpenWRT LDFLAGS for shared libraries")
+endif()
+if(NOT DEFINED CMAKE_MODULE_LINKER_FLAGS)
+  set(CMAKE_MODULE_LINKER_FLAGS "" CACHE STRING "OpenWRT LDFLAGS for module libraries")
+endif()
+
+if(NOT DEFINED CMAKE_INSTALL_SO_NO_EXE)
+  set(CMAKE_INSTALL_SO_NO_EXE 0)
+endif()
+
+if(NOT DEFINED CMAKE_PROGRAM_PATH)
+  set(CMAKE_PROGRAM_PATH "${RELOCATED_HOST_DIR}/bin")
+endif()
+if(NOT DEFINED CMAKE_SYSROOT)
+  set(CMAKE_SYSROOT "${RELOCATED_HOST_DIR}/aarch64-openwrt-linux-musl/sysroot")
+endif()
+if(NOT DEFINED CMAKE_FIND_ROOT_PATH)
+  set(CMAKE_FIND_ROOT_PATH "${CMAKE_SYSROOT}")
+endif()
+
+if(NOT DEFINED CMAKE_FIND_ROOT_PATH_MODE_PROGRAM)
+  set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+endif()
+if(NOT DEFINED CMAKE_FIND_ROOT_PATH_MODE_PACKAGE)
+  set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+endif()
+if(NOT DEFINED CMAKE_FIND_ROOT_PATH_MODE_LIBRARY)
+  set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+endif()
+if(NOT DEFINED CMAKE_FIND_ROOT_PATH_MODE_INCLUDE)
+  set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+endif()
+
+set(ENV{PKG_CONFIG_SYSROOT_DIR} "${CMAKE_SYSROOT}")
+
+# Set compilers from OpenWRT toolchain
+if(NOT DEFINED CMAKE_C_COMPILER)
+  set(CMAKE_C_COMPILER "${RELOCATED_HOST_DIR}/bin/aarch64-openwrt-linux-gcc")
+endif()
+if(NOT DEFINED CMAKE_CXX_COMPILER)
+  set(CMAKE_CXX_COMPILER "${RELOCATED_HOST_DIR}/bin/aarch64-openwrt-linux-g++")
+endif()
+
+include_directories("${ZLIB_ROOT}/include")
+link_directories("${ZLIB_ROOT}/lib")
+
+if(NOT DEFINED QT_HOST_PATH)
+  set(QT_HOST_PATH "${RELOCATED_HOST_DIR}")
+endif()
+
+if(NOT DEFINED QT_HOST_PATH_CMAKE_DIR)
+  set(QT_HOST_PATH_CMAKE_DIR "${RELOCATED_HOST_DIR}/lib/cmake")
+endif()
