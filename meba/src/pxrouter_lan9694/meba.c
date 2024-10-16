@@ -9,6 +9,11 @@
 #include "meba_common.h"
 
 #define VTSS_MSLEEP(m) usleep((m) * 1000)
+#define LAGUNA_CAP_10G_FDX (MEBA_PORT_CAP_10G_FDX | MEBA_PORT_CAP_5G_FDX | MEBA_PORT_CAP_SFP_2_5G | MEBA_PORT_CAP_FLOW_CTRL | MEBA_PORT_CAP_SFP_SD_HIGH)
+#define INDYPHY_INTERRUPT 11
+
+#define STATUSLED_G_GPIO 61
+#define STATUSLED_R_GPIO 61
 
 /* Local mapping table */
 typedef struct {
@@ -310,6 +315,30 @@ static mesa_rc lan969x_sfp_status_get(meba_inst_t inst,
     return rc;
 }
 
+static mesa_bool_t get_sfp_status(meba_inst_t inst,
+                                  mesa_port_no_t port_no,
+                                  mesa_sgpio_port_data_t *data,
+                                  sfp_signal_t sfp)
+{
+    uint32_t sgpio_port = meba_port_map[port_no].sgpio_port;
+
+    if (sgpio_port >= MESA_SGPIO_PORTS) {
+        T_E(inst, "Invalid port %d, sgpio_port %d", port_no, sgpio_port);
+        return false;
+    }
+
+    if (sfp == SFP_DETECT) {
+        return !data[sgpio_port].value[1]; // The SFP detect signal is inverted
+    } else if (sfp == SFP_FAULT) {
+        return data[sgpio_port].value[2];
+    } else if (sfp == SFP_LOS) {
+        return data[sgpio_port].value[0];
+    } else {
+        T_E(inst, "Unknown signal");
+    }
+    return false;
+}
+
 // For backwards compatibility (use lan969x_sfp_status_get())
 static mesa_rc lan969x_sfp_insertion_status_get(meba_inst_t inst, mesa_port_list_t *present)
 {
@@ -345,9 +374,7 @@ static mesa_rc lan969x_port_admin_state_set(meba_inst_t inst,
     mesa_sgpio_mode_t  sgmode;
     uint8_t            sgport = meba_port_map[port_no].sgpio_port;
 
-    if (board->type == BOARD_TYPE_LAGUNA_PCB8398) {
-        sgmode = (state->enable ? MESA_SGPIO_MODE_OFF : MESA_SGPIO_MODE_ON);
-    }
+    sgmode = (state->enable ? MESA_SGPIO_MODE_OFF : MESA_SGPIO_MODE_ON);
 
     if (board->port[port_no].map.map.miim_controller == MESA_MIIM_CONTROLLER_NONE &&
         sgport < MESA_SGPIO_PORTS && (mesa_sgpio_conf_get(NULL, 0, 0, &conf) == MESA_RC_OK)) {
@@ -399,7 +426,6 @@ static mesa_rc lan969x_status_led_set(meba_inst_t inst,
                                       meba_led_color_t color)
 {
     mesa_rc            rc = MESA_RC_ERROR;
-    meba_board_state_t *board = INST2BOARD(inst);
 
     if (type == MEBA_LED_TYPE_FRONT && color < MEBA_LED_COLOR_COUNT) {
         T_I(inst, "LED:%d, color=%d", type, color);
@@ -472,6 +498,27 @@ static mesa_rc sgpio_handler(meba_inst_t inst, meba_board_state_t *board, meba_e
         }
     }
     return (handled ? MESA_RC_OK : MESA_RC_ERROR);
+}
+
+static mesa_rc phy_interrupt_handler(meba_inst_t inst,
+                                     meba_board_state_t *board,
+                                     meba_event_signal_t signal_notifier)
+{
+    mesa_port_no_t    port_no;
+    int               handled = 0;
+
+    for (port_no = 0; port_no < board->port_cnt-1; port_no++) {
+        if (is_phy_port(board->port[port_no].map.cap)) {
+            // Check for Cu Phy events
+            if (meba_generic_phy_event_check(inst, port_no, signal_notifier) == MESA_RC_OK) {
+                handled++;
+            }
+            if (meba_generic_phy_timestamp_check(inst, port_no, signal_notifier) == MESA_RC_OK) {
+                handled++;
+            }
+        }
+    }
+    return handled ? MESA_RC_OK : MESA_RC_ERROR;
 }
 
 static mesa_rc gpio_handler(meba_inst_t inst, meba_board_state_t *board, meba_event_signal_t signal_notifier)
@@ -739,6 +786,34 @@ static mesa_rc lan969x_event_enable(meba_inst_t inst,
     }
 
     return rc;
+}
+
+static void port_entry_map(meba_port_entry_t *entry, port_map_t *map)
+{
+    entry->map.chip_port = map->chip_port;
+    entry->map.miim_controller = map->miim_controller;
+    entry->map.miim_addr = map->miim_addr;
+    entry->mac_if = map->mac_if;
+    entry->cap = map->cap;
+    entry->map.max_bw = map->max_bw;
+}
+
+static void init_port_table(meba_inst_t inst, int port_cnt, port_map_t *map)
+{
+    meba_board_state_t *board = INST2BOARD(inst);
+    mesa_port_no_t     port_no;
+
+    /* Fill out port mapping table */
+    board->port_cnt = port_cnt;
+    for (port_no = 0; port_no < port_cnt; port_no++) {
+        port_entry_map(&board->port[port_no].map, &map[port_no]);
+        board->port[port_no].ts_phy = map[port_no].ts_phy;
+
+        // Initialise phy base port.
+        if (port_no < 16) {
+            board->port[port_no].map.phy_base_port = (port_no / 4) * 4;
+        }
+    }
 }
 
 // Public Initialize
