@@ -1,7 +1,7 @@
 // Copyright (c) 2004-2020 Microchip Technology Inc. and its subsidiaries.
 // SPDX-License-Identifier: MIT
 
-= MESA README
+# MESA README
 
 See the mesa-doc.html (this can be found in the released artifacts) file for
 read-me, getting started documentation and more information.
@@ -10,8 +10,8 @@ License information, see LICENSE.
 
 To generate mesa-doc.html (only relevant in non-released version) go to
 `./mesa/docs/scripts` and run `dg.rb`.
-
-== Terminology
+ 
+## Terminology
 
 Microchip is aware that some terminology used in this project is antiquated and
 inappropriate. As a result of the complex nature of software where seemingly
@@ -20,11 +20,13 @@ the software's functionality (requiring extensive retesting and revalidation) we
 are unable to make the desired changes in all legacy systems without
 compromising our product or our clients' products.
 
-== Build for OpenWRT
+## Build for OpenWRT
+```
 export OPENWRT_DIR=/path/to/openwrt
 mkdir build
 cd build
 cmake .. -DCMAKE_TOOLCHAIN_FILE=../openwrt_toolchainfile.cmake
+```
 
 Then run `ccmake ..` to choose build options, and run `make -jN`
 
